@@ -19,8 +19,11 @@ import enum
 load_dotenv()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+BASE_URL = os.getenv("BASE_URL")
 if OPENAI_API_KEY is None:
     raise Exception("OPENAI_API_KEY not defined. Check your .env file, buddy.")
+if BASE_URL is None:
+    BASE_URL = "http://localhost:8000"
 
 prompts = {}
 
@@ -155,7 +158,7 @@ def lesson(lesson_id: int, db: Session = Depends(get_db)):
 
 @app.post("/check_submission")
 async def check_submission(
-    lesson_id: int, sublesson_id: int, submission: str
+    lesson_id: int, sublesson_id: int, submission: str, check_solution: bool
 ) -> SubmissionResult | None:
     db = get_db()
     lesson_plan = LessonPlan.get(db, lesson_id=lesson_id)
@@ -168,6 +171,11 @@ async def check_submission(
     # stdoutdata, stderrdata = pandoc_process.communicate(submission)
     if pandoc_process.returncode != 0:
         return SubmissionResult(success=False, problem="Doesn't compile")
+
+    output_url =f"{BASE_URL}/static/{filename}"
+
+    if not check_solution:
+        return SubmissionResult(success=False, problem="Not Checking Solution", output_url=output_url)
 
     prompt = prompts[sublesson.lesson_type].format(
         solution_information=sublesson.solution_information,
@@ -204,14 +212,14 @@ async def check_submission(
         print(success, hint)
         if success.strip().lower() in ["yes", "success"]:
             return SubmissionResult(
-                success=True, output_url="http://localhost:8000/static/" + filename, hint=hint
+                success=True, output_url=output_url, hint=hint
             )
         else:
             return SubmissionResult(
                 success=False,
                 problem="Comples but incorrect latex.",
                 hint=hint,
-                output_url="http://localhost:8000/static/" + filename,
+                output_url=output_url,
             )
 
 
