@@ -1,13 +1,14 @@
 from fastapi import FastAPI
+from pydantic import BaseModel
 from typing import List
 import uvicorn
 
 app = FastAPI()
 
-class Lesson:
+class Lesson(BaseModel):
     pass
 
-class SubmissionResult:
+class SubmissionResult(BaseModel):
     pass
 
 @app.get("/lesson")
