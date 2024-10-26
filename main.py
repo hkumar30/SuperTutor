@@ -1,9 +1,21 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Literal
 import uvicorn
+import os
+import subprocess
+import random
+import string
 
 app = FastAPI()
+
+# Create /static directory if it doesnt exist.
+# Then mount it to /static to be hosted
+# This will store the output images
+os.makedirs("static", exist_ok=True)
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 db = None # Init DB Here
 
@@ -35,7 +47,8 @@ class LessonPlan(BaseModel):
         )
 
 class SubmissionResult(BaseModel):
-    pass
+    success: bool
+    output_url: str | None = None
 
 @app.get("/lesson_plan")
 def lesson(lesson_id: int) -> LessonPlan:
@@ -44,7 +57,15 @@ def lesson(lesson_id: int) -> LessonPlan:
 
 @app.post("/check_submission")
 def check_submission(lesson_id: int, sublesson_id: int, submission: str) -> SubmissionResult:
-    pass
+    filename = "".join(random.choices(string.ascii_letters, k=8)) + ".pdf"
+    pandoc_process = subprocess.run(['pandoc', '-o', f'static/{filename}'], input=submission.encode())
+    #stdoutdata, stderrdata = pandoc_process.communicate(submission)
+    if pandoc_process.returncode == 0:
+        return SubmissionResult(success=True, output_url="http://localhost:8000/static/" + filename)
+    else:
+        return SubmissionResult(success=False)
 
 if __name__ == "__main__":
+
+    # Start FastAPI app.
     uvicorn.run(app, host="0.0.0.0", port=8000)
