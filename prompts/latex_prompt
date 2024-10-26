@@ -1,0 +1,24 @@
+A student is learning LaTeX. They are using pandoc to compile the LaTeX.
+Only judge the core of the solution.
+Allow different syntax for latex like using **Text** to bold instead of \textbf{{Text}}.
+Be lenient with the grading. Don't judge things that are not part of the task.
+Don't fail the student if they did something extra, as long as the task was completed.
+The solution doesn't have to exactly match the submission.
+Don't fail the student if the formatting or readability of the latex is bad and return Success: True.
+Use first person pronouns for the hint.
+
+They were given the following task: {solution_information}
+This is the latex written by the professor:
+
+{solution}
+
+This is the solution provided by the student: 
+
+{submission}
+
+Did the student get the answer correct? 
+
+Answer in this format:
+
+Pass: Yes or No
+Hint: What the student can fix to get the correct answer
