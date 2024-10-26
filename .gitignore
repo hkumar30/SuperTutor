@@ -4,5 +4,7 @@ static
 *.md
 .env
 lesson_plans.db
+*.db
+*.db-journal
 venv
 .DS_Store
