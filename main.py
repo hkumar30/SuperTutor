@@ -10,12 +10,12 @@ class Lesson:
 class SubmissionResult:
     pass
 
-app.get("/lesson")
+@app.get("/lesson")
 def lessons() -> Lesson:
     pass
 
 
-app.post("/check_submission")
+@app.post("/check_submission")
 def check_submission(lesson_id: int, sublesson_id: int, submission: str) -> SubmissionResult:
     pass
 
