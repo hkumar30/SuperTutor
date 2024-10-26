@@ -145,7 +145,7 @@ class SubmissionResult(BaseModel):
     output_url: str | None = None
 
 
-@app.get("/lesson_plan")
+@app.get("/lessons/{lesson_id}")
 def lesson(lesson_id: int, db: Session = Depends(get_db)):
     lesson_plan = LessonPlan.get(db, lesson_id)
     if not lesson_plan:
@@ -156,7 +156,7 @@ def lesson(lesson_id: int, db: Session = Depends(get_db)):
     return lesson_plan
 
 
-@app.post("/check_submission")
+@app.post("/lessons/{lesson_id}/{sublesson_id}/submit")
 async def check_submission(
     lesson_id: int, sublesson_id: int, submission: str, check_solution: bool
 ) -> SubmissionResult | None:
