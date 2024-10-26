@@ -22,7 +22,7 @@ os.makedirs("static", exist_ok=True)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-DATABASE_URL = "sqlite:///./lesson_plans.db"
+DATABASE_URL = "sqlite:///./database/lesson_plans.db"
 
 # Create the SQLAlchemy engine
 engine = create_engine(
@@ -94,11 +94,18 @@ class LessonPlan(BaseModel):
             return None
 
         return cls(
-            id=0,
-            title="Test Lesson",
-            author="John Smith",
+            title=lesson_plan_orm.title,
+            author=lesson_plan_orm.author,
             lessons=[
-                Lesson(title="Lesson 1", lesson_text="Ah", solution="AHH", lesson_type="latex", solution_information="HAHA",solution_boilerplate="Meow")
+                Lesson(
+                    title=lesson.title,
+                    lesson_text=lesson.lesson_text,
+                    solution=lesson.solution,
+                    solution_information=lesson.solution_information,
+                    lesson_type=lesson.lesson_type.value,
+                    solution_boilerplate=lesson.solution_boilerplate
+                )
+                for lesson in lesson_plan_orm.lessons
             ]
         )
 
@@ -130,8 +137,8 @@ def check_submission(lesson_id: int, sublesson_id: int, submission: str) -> Subm
 def create_sample_data(db: Session):
     # Check if sample data already exists
     if db.query(LessonPlanORM).count() == 0:
-        sample_lesson_plan = LessonPlanORM(
-            title="Sample Lesson Plan",
+        db.add(LessonPlanORM(
+            title="Sample LaTeX Plan #1",
             author="John Smith",
             lessons=[
                 LessonORM(
@@ -140,8 +147,14 @@ def create_sample_data(db: Session):
                     solution="Use LaTeX to format documents.",
                     solution_information="Refer to LaTeX documentation.",
                     lesson_type=LessonTypeEnum.latex,
-                    solution_boilerplate="\\documentclass{article}"
-                ),
+                    solution_boilerplate="\\documentclass{article}" #Was not sure what to put here, we can change it later.
+                )
+        ]))
+
+        db.add(LessonPlanORM(
+            title="Sample Linux Plan",
+            author="Joe Smith",
+            lessons=[
                 LessonORM(
                     title="Lesson 2",
                     lesson_text="Basic Linux Commands",
@@ -150,12 +163,11 @@ def create_sample_data(db: Session):
                     lesson_type=LessonTypeEnum.linux,
                     solution_boilerplate="#!/bin/bash"
                 )
-            ]
-        )
-        db.add(sample_lesson_plan)
+        ]))
+
         db.commit()
-        db.refresh(sample_lesson_plan)
-        print(f"Added LessonPlan with ID: {sample_lesson_plan.id}")
+        # db.refresh()
+        print(f"Added LessonPlan with ID: {id}")
 
 @app.on_event("startup")
 def startup_event():
@@ -164,6 +176,5 @@ def startup_event():
     db.close()
 
 if __name__ == "__main__":
-
     # Start FastAPI app.
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -5,3 +5,4 @@ static
 .env
 lesson_plans.db
 venv
+.DS_Store
