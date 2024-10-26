@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Literal
@@ -7,6 +7,11 @@ import os
 import subprocess
 import random
 import string
+from sqlalchemy import (
+    create_engine, Column, Integer, String, ForeignKey, Enum
+)
+from sqlalchemy.orm import sessionmaker, relationship, declarative_base, Session
+import enum
 
 app = FastAPI()
 
@@ -17,7 +22,55 @@ os.makedirs("static", exist_ok=True)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-db = None # Init DB Here
+DATABASE_URL = "sqlite:///./lesson_plans.db"
+
+# Create the SQLAlchemy engine
+engine = create_engine(
+    DATABASE_URL, connect_args={"check_same_thread": False}
+)
+
+# Create a configured "Session" class
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Create a Base class for declarative class definitions
+Base = declarative_base()
+
+# Dependency to get DB session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+class LessonTypeEnum(enum.Enum):
+    latex = "latex"
+    linux = "linux"
+
+class LessonORM(Base):
+    __tablename__ = 'lessons'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    lesson_plan_id = Column(Integer, ForeignKey('lesson_plans.id'), nullable=False)
+    title = Column(String, nullable=False)
+    lesson_text = Column(String, nullable=False)
+    solution = Column(String, nullable=False)
+    solution_information = Column(String, nullable=False)
+    lesson_type = Column(Enum(LessonTypeEnum), nullable=False)
+    solution_boilerplate = Column(String, nullable=False)
+
+class LessonPlanORM(Base):
+    __tablename__ = 'lesson_plans'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    author = Column(String, nullable=False)
+    
+    # Establish relationship with LessonORM
+    lessons = relationship("LessonORM", backref="lesson_plan", cascade="all, delete-orphan")
+
+# Create all tables in the database
+Base.metadata.create_all(bind=engine)
 
 class Lesson(BaseModel):
     title: str
@@ -35,7 +88,10 @@ class LessonPlan(BaseModel):
 
     @classmethod
     def get(cls, db, lesson_id: int):
-        # DATABASE CODE HERE
+        lesson_plan_orm = db.query(LessonPlanORM).filter(LessonPlanORM.id == lesson_id).first()
+        
+        if not lesson_plan_orm:
+            return None
 
         return cls(
             id=0,
@@ -51,8 +107,14 @@ class SubmissionResult(BaseModel):
     output_url: str | None = None
 
 @app.get("/lesson_plan")
-def lesson(lesson_id: int) -> LessonPlan:
-    return LessonPlan.get(db, lesson_id)
+def lesson(lesson_id: int, db: Session = Depends(get_db)):
+    lesson_plan = LessonPlan.get(db, lesson_id)
+    if not lesson_plan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"LessonPlan with id {lesson_id} not found."
+        )
+    return lesson_plan
 
 
 @app.post("/check_submission")
@@ -64,6 +126,42 @@ def check_submission(lesson_id: int, sublesson_id: int, submission: str) -> Subm
         return SubmissionResult(success=True, output_url="http://localhost:8000/static/" + filename)
     else:
         return SubmissionResult(success=False)
+
+def create_sample_data(db: Session):
+    # Check if sample data already exists
+    if db.query(LessonPlanORM).count() == 0:
+        sample_lesson_plan = LessonPlanORM(
+            title="Sample Lesson Plan",
+            author="John Smith",
+            lessons=[
+                LessonORM(
+                    title="Lesson 1",
+                    lesson_text="Introduction to LaTeX",
+                    solution="Use LaTeX to format documents.",
+                    solution_information="Refer to LaTeX documentation.",
+                    lesson_type=LessonTypeEnum.latex,
+                    solution_boilerplate="\\documentclass{article}"
+                ),
+                LessonORM(
+                    title="Lesson 2",
+                    lesson_text="Basic Linux Commands",
+                    solution="Use commands like ls, cd, mkdir.",
+                    solution_information="Refer to Linux command manuals.",
+                    lesson_type=LessonTypeEnum.linux,
+                    solution_boilerplate="#!/bin/bash"
+                )
+            ]
+        )
+        db.add(sample_lesson_plan)
+        db.commit()
+        db.refresh(sample_lesson_plan)
+        print(f"Added LessonPlan with ID: {sample_lesson_plan.id}")
+
+@app.on_event("startup")
+def startup_event():
+    db = SessionLocal()
+    create_sample_data(db)
+    db.close()
 
 if __name__ == "__main__":
 

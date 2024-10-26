@@ -3,3 +3,5 @@ static
 *.pyc
 *.md
 .env
+lesson_plans.db
+venv
