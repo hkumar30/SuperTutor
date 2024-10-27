@@ -1,0 +1,18 @@
+
+import os;
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+BASE_URL = os.getenv("BASE_URL")
+if OPENAI_API_KEY is None:
+    raise Exception("Yo buddy, OPENAI_API_KEY not defined. Check your .env file.")
+if BASE_URL is None:
+    BASE_URL = "http://localhost:8000"
+
+def toSpeech(inputText):
+    "https://api.openai.com/v1/audio/speech"
+    headers={"Authorization": "Bearer " + OPENAI_API_KEY},
+    json={
+        "model" : "tts-1",
+        "voice" : "fable",
+        "input" : inputText
+    }

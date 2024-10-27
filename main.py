@@ -19,6 +19,7 @@ import enum
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 from google.cloud import texttospeech
+from tts import *
 
 # Load environment variables
 load_dotenv()
