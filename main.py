@@ -239,7 +239,7 @@ async def chat(
     lesson_id: int, sublesson_id: int, submission: str, messages: list[LessonChatMessage], db: Session = Depends(get_db) 
 ) -> LessonChatMessage | None:
     lesson_plan = LessonPlan.get(db, lesson_id=lesson_id)
-    sublesson = lesson_plan.lessons[sublesson_id]
+    sublesson = lesson_plan.sublessons[sublesson_id]
     client = await get_client()
     prompt = prompts[sublesson.lesson_type + "_chat"].format(
                                task=sublesson.task,
