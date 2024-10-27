@@ -37,7 +37,8 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['*']
+    allow_origins=['*'],
+    allow_methods=["*"],
 )
 
 http_client = None
@@ -167,12 +168,12 @@ class LessonPlanCreate(BaseModel):
     author: str
     sublessons: List[SubLessonCreate]
 
-@app.get("/lessons")
+@app.get("/lessons/")
 def get_lesson_plans(db: Session = Depends(get_db)):
     lesson_plans = db.query(LessonPlanORM).all()
     return [{"id": lp.id, "title": lp.title, "author": lp.author} for lp in lesson_plans]
 
-@app.post('/lessons')
+@app.post("/lessons/")
 def create_lesson(lesson_plan_data: LessonPlanCreate, db: Session = Depends(get_db)):
     try:
         new_lesson_plan = LessonPlanORM(
