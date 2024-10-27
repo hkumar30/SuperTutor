@@ -87,7 +87,7 @@ def get_db():
 # Enum for lesson types
 class LessonTypeEnum(enum.Enum):
     latex = "latex"
-    linux = "linux"
+    text = "text"
 
 # ORM models
 class LessonORM(Base):
@@ -121,7 +121,7 @@ class Lesson(BaseModel):
     lesson_text: str
     solution: str
     task: str
-    lesson_type: Literal["latex", "linux"]
+    lesson_type: Literal["latex", "text"]
     solution_boilerplate: str
 
 class LessonPlan(BaseModel):
@@ -170,7 +170,7 @@ class SubLessonCreate(BaseModel):
     title: str
     prompt: str
     question: str
-    type: Literal["latex", "linux"]
+    type: Literal["latex", "text"]
     solutionBoilerplate: str
 
 class LessonPlanCreate(BaseModel):
@@ -182,7 +182,7 @@ class SubLessonCreateRequest(BaseModel):
     title: str
     prompt: str
     question: str
-    type: Literal["latex", "linux"]
+    type: Literal["latex", "text"]
     solutionBoilerplate: str
 
 class AudioResponse(BaseModel):
@@ -369,23 +369,22 @@ async def check_submission(
             raise HTTPException(status_code=404, detail="Sublesson not found.")
         sublesson = lesson_plan.sublessons[sublesson_id]
 
-        # Convert submission to HTML using Pandoc
-        filename = "".join(random.choices(string.ascii_letters, k=8)) + ".html"
-        pandoc_process = subprocess.run(
-            ["pandoc", "--mathml"],
-            input=submission.encode(),
-            capture_output=True
-        )
-        if pandoc_process.returncode != 0:
-            print("Pandoc conversion failed.")
-            return SubmissionResult(success=False, problem="Doesn't compile")
+        if sublesson.sublesson_type == "latex":
+            # Convert submission to HTML using Pandoc
+            filename = "".join(random.choices(string.ascii_letters, k=8)) + ".html"
+            pandoc_process = subprocess.run(
+                ["pandoc", "--mathml"],
+                input=submission.encode(),
+                capture_output=True
+            )
+            if pandoc_process.returncode != 0:
+                print("Pandoc conversion failed.")
+                return SubmissionResult(success=False, problem="Doesn't compile")
         
-        # Save the HTML output to a file
-        with open(f"static/{filename}", "w", encoding="utf-8") as f:
-            f.write(pandoc_process.stdout.decode())
-        
-        output_url = f"{BASE_URL}/static/{filename}"
-        output = pandoc_process.stdout.decode()
+        # output_url = f"{BASE_URL}/static/{filename}"
+            output = pandoc_process.stdout.decode()
+        elif sublesson.sublesson_type == "text":
+            output = None
 
         if not check_solution:
             # Generate TTS for the output
@@ -573,20 +572,6 @@ def create_sample_data(db: Session):
                     lesson_type=LessonTypeEnum.latex,
                     solution_boilerplate="\\documentclass{article}"
                 ),
-        ]))
-
-        db.add(LessonPlanORM(
-            title="Sample Linux Plan",
-            author="Joe Smith",
-            sublessons=[
-                LessonORM(
-                    title="Getting started with Linux",
-                    lesson_text="Basic Linux Commands",
-                    solution="Use commands like ls, cd, mkdir.",
-                    task="Refer to Linux command manuals.",
-                    lesson_type=LessonTypeEnum.linux,
-                    solution_boilerplate="#!/bin/bash"
-                )
         ]))
 
         db.commit()
