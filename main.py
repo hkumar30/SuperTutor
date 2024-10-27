@@ -89,7 +89,7 @@ class LessonORM(Base):
     title = Column(String, nullable=False)
     lesson_text = Column(String, nullable=False)
     solution = Column(String, nullable=False)
-    solution_information = Column(String, nullable=False)
+    task = Column(String, nullable=False)
     lesson_type = Column(Enum(LessonTypeEnum), nullable=False)
     solution_boilerplate = Column(String, nullable=False)
 
@@ -110,7 +110,7 @@ class Lesson(BaseModel):
     title: str
     lesson_text: str
     solution: str
-    solution_information: str
+    task: str
     lesson_type: Literal["latex", "linux"]
     solution_boilerplate: str
 
@@ -136,7 +136,7 @@ class LessonPlan(BaseModel):
                     title=lesson.title,
                     lesson_text=lesson.lesson_text,
                     solution=lesson.solution,
-                    solution_information=lesson.solution_information,
+                    task=lesson.task,
                     lesson_type=lesson.lesson_type.value,
                     solution_boilerplate=lesson.solution_boilerplate
                 )
@@ -185,7 +185,7 @@ async def check_submission(
         return SubmissionResult(success=False, problem="Not Checking Solution", output_url=output_url)
 
     prompt = prompts[sublesson.lesson_type].format(
-        solution_information=sublesson.solution_information,
+        task=sublesson.task,
         solution=sublesson.solution,
         submission=submission,
     )
@@ -237,7 +237,7 @@ async def chat(
     sublesson = lesson_plan.lessons[sublesson_id]
     client = await get_client()
     prompt = prompts[sublesson.lesson_type + "_chat"].format(
-                               solution_information=sublesson.solution_information,
+                               task=sublesson.task,
         solution=sublesson.solution,
         submission=submission, 
                     )
@@ -274,7 +274,7 @@ def create_sample_data(db: Session):
                     title="Lesson 1",
                     lesson_text="<h1>Welcome to your first Markdown and LaTeX tutorial.</h1>\n\n<p>LaTeX (pronounced Lah-Tek) is a typesetting engine used to create beautifully formatted documents.</p>\n\n<p>In this lesson, we will cover the basics of setting up a LaTeX document structure and using Markdown-style headings for top-level and sub-level sections.</p>\n\n<p>A basic LaTeX document contains commands that define its structure. Start by setting the document class and adding content inside the <code>document</code> environment:</p>\n\n<pre>\n\\documentclass{article}\n\\begin{document}\nHello, LaTeX World!\n\\end{document}\n</pre>\n\n<p>Now create a document with the structure shown above and include two headings: a top-level heading and a level 3 heading. Use the syntax below:</p>\n\n<pre>\n# This is a top-level heading\n\n### This is a third level heading.\n</pre>",
                     solution="\\documentclass{article}\n\\begin{document}\n# Hello\n\n### World\n\\end{document}",
-                    solution_information="Refer to LaTeX documentation.",
+                    task="Refer to LaTeX documentation.",
                     lesson_type=LessonTypeEnum.latex,
                     solution_boilerplate="\\documentclass{article}" #Was not sure what to put here, we can change it later.
                 ),
@@ -282,7 +282,7 @@ def create_sample_data(db: Session):
                     title="Formatting Text and Creating Lists",
                     lesson_text="<h1>Text Formatting and Lists</h1>\n\n<p>LaTeX offers commands to format text with bold, italics, and underline:</p>\n\n<pre>\n\\textbf{bold text}\n\\textit{italic text}\n\\underline{underlined text}\n</pre>\n\n<p>It also supports creating unordered and ordered lists. Use <code>itemize</code> for an unordered list and <code>enumerate</code> for an ordered list:</p>\n\n<pre>\n\\begin{itemize}\n  \\item First item\n  \\item Second item\n\\end{itemize>\n\n\\begin{enumerate}\n  \\item First item\n  \\item Second item\n\\end{enumerate>\n</pre>\n\n<p>Create a document with one sentence that includes bold, italic, and underlined text, as well as both an unordered and ordered list.</p>",
                     solution="\\documentclass{article}\n\\begin{document}\nThis is \\textbf{bold}, \\textit{italic}, and \\underline{underlined} text.\n\n\\begin{itemize}\n  \\item First item\n  \\item Second item\n\\end{itemize}\n\n\\begin{enumerate}\n  \\item First item\n  \\item Second item\n\\end{enumerate}\n\\end{document}",
-                    solution_information="Refer to LaTeX documentation.",
+                    task="Refer to LaTeX documentation.",
                     lesson_type=LessonTypeEnum.latex,
                     solution_boilerplate="\\documentclass{article}" #Was not sure what to put here, we can change it later.
                 )
@@ -296,7 +296,7 @@ def create_sample_data(db: Session):
                     title="Lesson 2",
                     lesson_text="Basic Linux Commands",
                     solution="Use commands like ls, cd, mkdir.",
-                    solution_information="Refer to Linux command manuals.",
+                    task="Refer to Linux command manuals.",
                     lesson_type=LessonTypeEnum.linux,
                     solution_boilerplate="#!/bin/bash"
                 )

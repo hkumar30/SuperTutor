@@ -7,7 +7,7 @@ The solution doesn't have to exactly match the submission.
 Don't fail the student if the formatting or readability of the latex is bad and return Success: True.
 Use first person pronouns for the hint.
 
-They were given the following task: {solution_information}
+They were given the following task: {task}
 This is the latex written by the professor:
 
 {solution}
