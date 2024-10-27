@@ -16,6 +16,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import sessionmaker, relationship, declarative_base, Session
 import enum
 from fastapi.middleware.cors import CORSMiddleware
+from tts import *;
 
 load_dotenv()
 
@@ -33,7 +34,6 @@ with open("prompts/latex_prompt", "r") as f:
 with open("prompts/latex_chat_prompt", "r") as f:
     prompts["latex_chat"] = f.read()
 
-
 app = FastAPI()
 
 app.add_middleware(
@@ -48,7 +48,7 @@ async def get_client():
         http_client = aiohttp.ClientSession()
     return http_client
 
-# Create /static directory if it doesnt exist.
+# Create /static directory if it does not exist.
 # Then mount it to /static to be hosted
 # This will store the output images
 os.makedirs("database", exist_ok=True)
@@ -114,7 +114,6 @@ class Lesson(BaseModel):
     lesson_type: Literal["latex", "linux"]
     solution_boilerplate: str
 
-
 class LessonPlan(BaseModel):
     id: int
     title: str
@@ -145,7 +144,6 @@ class LessonPlan(BaseModel):
             ]
         )
 
-
 class LessonChatMessage(BaseModel):
     role: Literal["assistant", "user"] = "assistant"
     content: str
@@ -156,7 +154,6 @@ class SubmissionResult(BaseModel):
     hint: str | None = None
     output_url: str | None = None
 
-
 @app.get("/lessons/{lesson_id}")
 def lesson(lesson_id: int, db: Session = Depends(get_db)):
     lesson_plan = LessonPlan.get(db, lesson_id)
@@ -166,7 +163,6 @@ def lesson(lesson_id: int, db: Session = Depends(get_db)):
             detail=f"LessonPlan with id {lesson_id} not found."
         )
     return lesson_plan
-
 
 @app.post("/lessons/{lesson_id}/{sublesson_id}/submit")
 async def check_submission(
@@ -203,7 +199,7 @@ async def check_submission(
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are a helpful teaching assistant who is helping the professor grade student submissionms.",
+                    "content": "You are a helpful teaching assistant who is helping the professor grade student submissions.",
                 },
                 {"role": "user", "content": prompt},
             ],
@@ -228,7 +224,7 @@ async def check_submission(
         else:
             return SubmissionResult(
                 success=False,
-                problem="Comples but incorrect latex.",
+                problem="Compiles but incorrect latex.",
                 hint=hint,
                 output_url=output_url,
             )
@@ -276,7 +272,7 @@ def create_sample_data(db: Session):
             sublessons=[
                 LessonORM(
                     title="Lesson 1",
-                    lesson_text="<h1>Welcome to your first Markdown and LaTeX tutorial.</h1>\n\n<p>LaTeX (pronounced Lah-Tek) is a typesetting engine used to create beautifully formatted documents.</p>\n\n<p>In this lesson, we will cover the basics of setting up a LaTeX document structure and using Markdown-style headings for top-level and sub-level sections.</p>\n\n<p>A basic LaTeX document contains commands that define its structure. Start by setting the document class and adding content inside the <code>document</code> environment:</p>\n\n<pre>\n\\documentclass{article}\n\\begin{document}\nHello, LaTeX World!\n\\end{document}\n</pre>\n\n<p>Now create a document with the structure shown above and include two headings: a top-level heading and a level 3 heading. Use the syntax below:</p>\n\n<pre>\n# This is a top level heading\n\n### This is a third level heading.\n</pre>",
+                    lesson_text="<h1>Welcome to your first Markdown and LaTeX tutorial.</h1>\n\n<p>LaTeX (pronounced Lah-Tek) is a typesetting engine used to create beautifully formatted documents.</p>\n\n<p>In this lesson, we will cover the basics of setting up a LaTeX document structure and using Markdown-style headings for top-level and sub-level sections.</p>\n\n<p>A basic LaTeX document contains commands that define its structure. Start by setting the document class and adding content inside the <code>document</code> environment:</p>\n\n<pre>\n\\documentclass{article}\n\\begin{document}\nHello, LaTeX World!\n\\end{document}\n</pre>\n\n<p>Now create a document with the structure shown above and include two headings: a top-level heading and a level 3 heading. Use the syntax below:</p>\n\n<pre>\n# This is a top-level heading\n\n### This is a third level heading.\n</pre>",
                     solution="\\documentclass{article}\n\\begin{document}\n# Hello\n\n### World\n\\end{document}",
                     task="Refer to LaTeX documentation.",
                     lesson_type=LessonTypeEnum.latex,
@@ -319,3 +315,5 @@ def startup_event():
 if __name__ == "__main__":
     # Start FastAPI app.
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
