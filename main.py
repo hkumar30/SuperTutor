@@ -15,6 +15,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import sessionmaker, relationship, declarative_base, Session
 import enum
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
@@ -29,9 +30,16 @@ prompts = {}
 
 with open("prompts/latex_prompt", "r") as f:
     prompts["latex"] = f.read()
+with open("prompts/latex_chat_prompt", "r") as f:
+    prompts["latex_chat"] = f.read()
 
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=['*']
+)
 
 http_client = None
 async def get_client():
@@ -138,6 +146,10 @@ class LessonPlan(BaseModel):
         )
 
 
+class LessonChatMessage(BaseModel):
+    role: Literal["assistant", "user"] = "assistant"
+    content: str
+
 class SubmissionResult(BaseModel):
     success: bool
     problem: str | None = None
@@ -158,9 +170,8 @@ def lesson(lesson_id: int, db: Session = Depends(get_db)):
 
 @app.post("/lessons/{lesson_id}/{sublesson_id}/submit")
 async def check_submission(
-    lesson_id: int, sublesson_id: int, submission: str, check_solution: bool
+    lesson_id: int, sublesson_id: int, submission: str, check_solution: bool, db: Session = Depends(get_db)
 ) -> SubmissionResult | None:
-    db = get_db()
     lesson_plan = LessonPlan.get(db, lesson_id=lesson_id)
     sublesson = lesson_plan.lessons[sublesson_id]
 
@@ -222,6 +233,39 @@ async def check_submission(
                 output_url=output_url,
             )
 
+@app.post("/lessons/{lesson_id}/{sublesson_id}/chat")
+async def chat(
+    lesson_id: int, sublesson_id: int, submission: str, messages: list[LessonChatMessage], db: Session = Depends(get_db) 
+) -> LessonChatMessage | None:
+    lesson_plan = LessonPlan.get(db, lesson_id=lesson_id)
+    sublesson = lesson_plan.lessons[sublesson_id]
+    client = await get_client()
+    prompt = prompts[sublesson.lesson_type + "_chat"].format(
+                               solution_information=sublesson.solution_information,
+        solution=sublesson.solution,
+        submission=submission, 
+                    )
+    print(prompt)
+    async with client.post(
+        "https://api.openai.com/v1/chat/completions",
+        headers={"Authorization": "Bearer " + OPENAI_API_KEY},
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": prompt,
+                },
+                *[message.model_dump() for message in messages]
+            ],
+        },
+    ) as resp:
+        if not resp.ok:
+            print(await resp.json())
+            return None
+        resp_json = await resp.json()
+        print(resp_json["choices"][0]["message"])
+        return resp_json["choices"][0]["message"]
 
 def create_sample_data(db: Session):
     # Check if sample data already exists
