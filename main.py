@@ -376,7 +376,7 @@ def check_submission(
             raise HTTPException(status_code=404, detail="Sublesson not found.")
         sublesson = lesson_plan.sublessons[sublesson_id]
 
-        if sublesson.sublesson_type == "latex":
+        if sublesson.lesson_type == "latex":
             # Convert submission to HTML using Pandoc
             filename = "".join(random.choices(string.ascii_letters, k=8)) + ".html"
             pandoc_process = subprocess.run(
