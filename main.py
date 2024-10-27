@@ -39,6 +39,10 @@ with open("prompts/latex_prompt", "r") as f:
     prompts["latex"] = f.read()
 with open("prompts/latex_chat_prompt", "r") as f:
     prompts["latex_chat"] = f.read()
+with open("prompts/text_prompt", "r") as f:
+    prompts["text"] = f.read()
+with open("prompts/text_chat_prompt", "r") as f:
+    prompts["text_chat"] = f.read()
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -390,7 +394,7 @@ def check_submission(
         
         # output_url = f"{BASE_URL}/static/{filename}"
             output = pandoc_process.stdout.decode()
-        elif sublesson.sublesson_type == "text":
+        elif sublesson.lesson_type == "text":
             output = None
 
         if not check_solution:
