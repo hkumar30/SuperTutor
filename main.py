@@ -473,7 +473,7 @@ def check_submission(
                 audio_url = None
             return SubmissionResult(
                 success=False,
-                problem="Compiles but incorrect latex.",
+                problem="The solution doesn't match professor's expectations.",
                 hint=hint,
                 output=output,
                 audio_url=audio_url
