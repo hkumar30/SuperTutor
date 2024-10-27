@@ -6,5 +6,6 @@ static
 lesson_plans.db
 *.db
 *.db-journal
+*.json
 venv
 .DS_Store
