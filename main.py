@@ -22,7 +22,7 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 BASE_URL = os.getenv("BASE_URL")
 if OPENAI_API_KEY is None:
-    raise Exception("OPENAI_API_KEY not defined. Check your .env file, buddy.")
+    raise Exception("Yo buddy, OPENAI_API_KEY not defined. Check your .env file.")
 if BASE_URL is None:
     BASE_URL = "http://localhost:8000"
 
