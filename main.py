@@ -179,7 +179,7 @@ async def check_submission(
     filename = "".join(random.choices(string.ascii_letters, k=8)) + ".html"
     pandoc_process = subprocess.run(
         #["pandoc", "-V", 'geometry:papersize={5in,2.7in},margin=0.1cm', "-o", f"static/{filename}"], input=submission.encode()
-        ["pandoc"], input=submission.encode(),
+        ["pandoc", "--mathml"], input=submission.encode(),
         capture_output=True
     )
     # stdoutdata, stderrdata = pandoc_process.communicate(submission)
