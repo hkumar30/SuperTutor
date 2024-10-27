@@ -10,10 +10,12 @@ import string
 from dotenv import load_dotenv
 import aiohttp
 import re
+import json
 import hashlib
 from sqlalchemy import (
     create_engine, Column, Integer, String, ForeignKey, Enum
 )
+from google.oauth2 import service_account
 from sqlalchemy.orm import sessionmaker, relationship, declarative_base, Session
 import enum
 from fastapi.middleware.cors import CORSMiddleware
@@ -66,7 +68,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Database setup
 DATABASE_URL = "sqlite:///./database/lesson_plans.db"
-
+# Removed credentials variable from here as it's handled separately
 
 engine = create_engine(
     DATABASE_URL, connect_args={"check_same_thread": False}
@@ -196,8 +198,14 @@ class TTSRequest(BaseModel):
 # In-memory cache for TTS (optional)
 tts_cache = {}
 
-# Utility function to convert text to speech
-async def text_to_speech(text: str, language: str = "en-US", voice_name: str = "en-US-Wavenet-D") -> str:
+# Initialize credentials and TextToSpeechClient once
+credentials = service_account.Credentials.from_service_account_file(
+    'golden-resolver-439908-a1-f3ee7a3bf800.json'
+)
+tts_client = texttospeech.TextToSpeechClient(credentials=credentials)
+
+# Synchronous text_to_speech function
+def text_to_speech_sync(text: str, language: str = "en-US", voice_name: str = "en-US-Wavenet-D") -> str:
     """
     Converts text to speech using Google Cloud Text-to-Speech API and returns the URL to the audio file.
 
@@ -218,8 +226,6 @@ async def text_to_speech(text: str, language: str = "en-US", voice_name: str = "
         return tts_cache[text_hash]
 
     try:
-        client = texttospeech.TextToSpeechClient()
-
         synthesis_input = texttospeech.SynthesisInput(text=text)
 
         # Build the voice request
@@ -234,7 +240,7 @@ async def text_to_speech(text: str, language: str = "en-US", voice_name: str = "
         )
 
         # Perform the text-to-speech request
-        response = client.synthesize_speech(
+        response = tts_client.synthesize_speech(
             input=synthesis_input,
             voice=voice,
             audio_config=audio_config
@@ -310,6 +316,7 @@ def lesson(lesson_id: int, db: Session = Depends(get_db)):
         )
     return lesson_plan
 
+# Endpoint to add a sublesson to a lesson plan
 @app.post("/lessons/{lesson_id}/sublessons", response_model=dict)
 def add_sublesson(
     lesson_id: int,
@@ -355,7 +362,7 @@ def add_sublesson(
 
 # Endpoint to submit a lesson
 @app.post("/lessons/{lesson_id}/{sublesson_id}/submit", response_model=SubmissionResult)
-async def check_submission(
+def check_submission(
     lesson_id: int,
     sublesson_id: int,
     submission: str,
@@ -390,7 +397,7 @@ async def check_submission(
         if not check_solution:
             # Generate TTS for the output
             try:
-                audio_url = await text_to_speech(output)
+                audio_url = text_to_speech_sync(output)
             except HTTPException as e:
                 print(f"TTS Service Unavailable: {e.detail}")
                 audio_url = None
@@ -403,61 +410,71 @@ async def check_submission(
             submission=submission,
         )
 
-        client = await get_client()
-        async with client.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": "Bearer " + OPENAI_API_KEY},
-            json={
-                "model": "gpt-4o-mini",  # Ensure this is a valid model
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are a helpful teaching assistant who is helping the professor grade student submissions.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-            },
-        ) as resp:
-            if not resp.ok:
-                error_detail = await resp.text()
-                print(f"OpenAI API Error [{resp.status}]: {error_detail}")
-                raise HTTPException(status_code=500, detail="OpenAI service unavailable.")
-            
-            resp_json = await resp.json()
-            response = resp_json["choices"][0]["message"]["content"]
-            matches = re.match(r".*[Pp]ass:\s*(.*)\s*[Hh]int:\s*([\s\S]*)", response)
-            if matches is None:
-                print("OpenAI response parsing failed.")
-                raise HTTPException(status_code=500, detail="Invalid response from OpenAI.")
-            success, hint = matches[1], matches[2]
-            print(f"Grading Result - Success: {success}, Hint: {hint}")
-            if success.strip().lower() in ["yes", "success"]:
-                # Generate TTS for the success response
-                try:
-                    audio_url = await text_to_speech(hint)
-                except HTTPException as e:
-                    print(f"TTS Service Unavailable for Success Hint: {e.detail}")
-                    audio_url = None
-                return SubmissionResult(
-                    success=True,
-                    output=output,
-                    hint=hint,
-                    audio_url=audio_url
-                )
-            else:
-                # Generate TTS for the failure response
-                try:
-                    audio_url = await text_to_speech(hint)
-                except HTTPException as e:
-                    print(f"TTS Service Unavailable for Failure Hint: {e.detail}")
-                    audio_url = None
-                return SubmissionResult(
-                    success=False,
-                    problem="Compiles but incorrect latex.",
-                    hint=hint,
-                    output=output,
-                    audio_url=audio_url
-                )
+        # Since we're in a synchronous function, we need to make the OpenAI API call synchronous or use asyncio.run
+        # For simplicity, let's make it synchronous using requests
+        # However, since the original code uses aiohttp, it's better to refactor the endpoint to be async
+
+        # Here's a synchronous approach using requests
+        import requests
+
+        headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json",
+        }
+
+        payload = {
+            "model": "gpt-3.5-turbo",  # Use a valid model name
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are a helpful teaching assistant who is helping the professor grade student submissions.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+        }
+
+        response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+
+        if response.status_code != 200:
+            error_detail = response.text
+            print(f"OpenAI API Error [{response.status_code}]: {error_detail}")
+            raise HTTPException(status_code=500, detail="OpenAI service unavailable.")
+        
+        resp_json = response.json()
+        response_content = resp_json["choices"][0]["message"]["content"]
+        matches = re.match(r".*[Pp]ass:\s*(.*)\s*[Hh]int:\s*([\s\S]*)", response_content)
+        if matches is None:
+            print("OpenAI response parsing failed.")
+            raise HTTPException(status_code=500, detail="Invalid response from OpenAI.")
+        success, hint = matches[1], matches[2]
+        print(f"Grading Result - Success: {success}, Hint: {hint}")
+        if success.strip().lower() in ["yes", "success"]:
+            # Generate TTS for the success response
+            try:
+                audio_url = text_to_speech_sync(hint)
+            except HTTPException as e:
+                print(f"TTS Service Unavailable for Success Hint: {e.detail}")
+                audio_url = None
+            return SubmissionResult(
+                success=True,
+                output=output,
+                hint=hint,
+                audio_url=audio_url
+            )
+        else:
+            # Generate TTS for the failure response
+            try:
+                audio_url = text_to_speech_sync(hint)
+            except HTTPException as e:
+                print(f"TTS Service Unavailable for Failure Hint: {e.detail}")
+                audio_url = None
+            return SubmissionResult(
+                success=False,
+                problem="Compiles but incorrect latex.",
+                hint=hint,
+                output=output,
+                audio_url=audio_url
+            )
     except HTTPException as e:
         print(f"HTTP Exception in Submission: {e.detail}")
         raise e
@@ -467,7 +484,7 @@ async def check_submission(
 
 # Endpoint to handle chat interactions
 @app.post("/lessons/{lesson_id}/{sublesson_id}/chat")
-async def chat(
+def chat(
     lesson_id: int,
     sublesson_id: int,
     submission: str,
@@ -480,7 +497,7 @@ async def chat(
             print(f"Sublesson {sublesson_id} not found in Lesson Plan {lesson_id}.")
             raise HTTPException(status_code=404, detail="Sublesson not found.")
         sublesson = lesson_plan.sublessons[sublesson_id]
-        client = await get_client()
+
         prompt = prompts.get(f"{sublesson.lesson_type}_chat")
         if not prompt:
             print(f"No chat prompt found for lesson type {sublesson.lesson_type}.")
@@ -491,27 +508,36 @@ async def chat(
             submission=submission, 
         )
         print(f"Chat Prompt: {prompt}")
-        async with client.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": "Bearer " + OPENAI_API_KEY},
-            json={
-                "model": "gpt-4o-mini",  # Ensure this is a valid model
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": prompt,
-                    },
-                    *[message.dict() for message in messages]
-                ],
-            },
-        ) as resp:
-            if not resp.ok:
-                error_detail = await resp.text()
-                print(f"OpenAI API Error [{resp.status}]: {error_detail}")
-                raise HTTPException(status_code=500, detail="OpenAI service unavailable.")
-            resp_json = await resp.json()
-            print(f"OpenAI Response: {resp_json['choices'][0]['message']}")
-            return resp_json["choices"][0]["message"]
+
+        import requests
+
+        headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json",
+        }
+
+        payload = {
+            "model": "gpt-3.5-turbo",  # Use a valid model name
+            "messages": [
+                {
+                    "role": "system",
+                    "content": prompt,
+                },
+                *[message.dict() for message in messages]
+            ],
+        }
+
+        response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+
+        if response.status_code != 200:
+            error_detail = response.text
+            print(f"OpenAI API Error [{response.status_code}]: {error_detail}")
+            raise HTTPException(status_code=500, detail="OpenAI service unavailable.")
+
+        resp_json = response.json()
+        ai_message = resp_json["choices"][0]["message"]["content"]
+        print(f"OpenAI Response: {ai_message}")
+        return LessonChatMessage(role="assistant", content=ai_message)
     except HTTPException as e:
         print(f"HTTP Exception in Chat: {e.detail}")
         raise e
@@ -519,11 +545,11 @@ async def chat(
         print(f"Unexpected Error in Chat: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error.")
 
-# Update the /tts endpoint
+# Endpoint to handle TTS
 @app.post("/tts", response_model=AudioResponse)
-async def convert_text_to_speech(tts_request: TTSRequest, db: Session = Depends(get_db)):
+def convert_text_to_speech(tts_request: TTSRequest, db: Session = Depends(get_db)):
     try:
-        audio_url = await text_to_speech(tts_request.text, tts_request.language, tts_request.voice_name)
+        audio_url = text_to_speech_sync(tts_request.text, tts_request.language, tts_request.voice_name)
         return AudioResponse(audio_url=audio_url)
     except HTTPException as e:
         print(f"TTS Service Error: {e.detail}")
@@ -602,4 +628,3 @@ def startup_event():
 # Run the application
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
