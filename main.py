@@ -119,7 +119,7 @@ class LessonPlan(BaseModel):
     id: int
     title: str
     author: str
-    lessons: list[Lesson]
+    sublessons: list[Lesson]
 
     @classmethod
     def get(cls, db, lesson_id: int):
@@ -132,7 +132,7 @@ class LessonPlan(BaseModel):
             id=lesson_plan_orm.id,
             title=lesson_plan_orm.title,
             author=lesson_plan_orm.author,
-            lessons=[
+            sublessons=[
                 Lesson(
                     title=lesson.title,
                     lesson_text=lesson.lesson_text,
