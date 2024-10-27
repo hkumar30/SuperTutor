@@ -440,7 +440,7 @@ async def check_submission(
                     audio_url = None
                 return SubmissionResult(
                     success=True,
-                    output_url=output_url,
+                    output=output,
                     hint=hint,
                     audio_url=audio_url
                 )
@@ -455,7 +455,7 @@ async def check_submission(
                     success=False,
                     problem="Compiles but incorrect latex.",
                     hint=hint,
-                    output_url=output_url,
+                    output=output,
                     audio_url=audio_url
                 )
     except HTTPException as e:
