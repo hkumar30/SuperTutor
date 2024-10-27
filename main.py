@@ -16,7 +16,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import sessionmaker, relationship, declarative_base, Session
 import enum
 from fastapi.middleware.cors import CORSMiddleware
-# from tts import *;
+ from ttsold import *;
 
 load_dotenv()
 
