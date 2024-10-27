@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-from typing import Literal
+from pydantic import BaseModel, ValidationError
+from typing import Literal, List
 import uvicorn
 import os
 import subprocess
@@ -154,10 +154,53 @@ class SubmissionResult(BaseModel):
     output_url: str | None = None
     output: str | None = None
 
-@app.get("/lessons/")
+# Schema (POST for creating lessons)
+class SubLessonCreate(BaseModel):
+    title: str
+    prompt: str
+    question: str
+    type: Literal["latex", "linux"]
+    solutionBoilerplate: str
+
+class LessonPlanCreate(BaseModel):
+    title: str
+    author: str
+    sublessons: List[SubLessonCreate]
+
+@app.get("/lessons")
 def get_lesson_plans(db: Session = Depends(get_db)):
     lesson_plans = db.query(LessonPlanORM).all()
     return [{"id": lp.id, "title": lp.title, "author": lp.author} for lp in lesson_plans]
+
+@app.post('/lessons')
+def create_lesson(lesson_plan_data: LessonPlanCreate, db: Session = Depends(get_db)):
+    try:
+        new_lesson_plan = LessonPlanORM(
+            title=lesson_plan_data.title,
+            author=lesson_plan_data.author,
+            sublessons=[
+                LessonORM(
+                    title=sub.title,
+                    lesson_text=sub.prompt,
+                    solution=sub.question,
+                    task="Refer to LaTeX documentation.",
+                    lesson_type=LessonTypeEnum[sub.type],
+                    solution_boilerplate=sub.solutionBoilerplate
+                ) for sub in lesson_plan_data.sublessons
+            ]
+        )
+        
+        db.add(new_lesson_plan)
+        db.commit()
+        db.refresh(new_lesson_plan)
+        return {"message": "Lesson created successfully!", "lesson_plan_id": new_lesson_plan.id}
+    except ValidationError as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Validation error: {e.errors()}")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
 
 @app.get("/lessons/{lesson_id}")
 def lesson(lesson_id: int, db: Session = Depends(get_db)):
@@ -186,7 +229,7 @@ async def check_submission(
     if pandoc_process.returncode != 0:
         return SubmissionResult(success=False, problem="Doesn't compile")
 
-    #output_url =f"{BASE_URL}/static/{filename}"
+    output_url =f"{BASE_URL}/static/{filename}"
     output = pandoc_process.stdout
 
     if not check_solution:
