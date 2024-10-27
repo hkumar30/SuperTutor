@@ -8,4 +8,4 @@ def toSpeech(textToTranscribe):
     voice="fable",
     input=textToTranscribe
     )
-    response.stream_to_file(speech_file_path)
+    return response.stream_to_file(speech_file_path)
