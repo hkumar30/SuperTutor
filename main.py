@@ -174,7 +174,7 @@ async def check_submission(
     lesson_id: int, sublesson_id: int, submission: str, check_solution: bool, db: Session = Depends(get_db)
 ) -> SubmissionResult | None:
     lesson_plan = LessonPlan.get(db, lesson_id=lesson_id)
-    sublesson = lesson_plan.lessons[sublesson_id]
+    sublesson = lesson_plan.sublessons[sublesson_id]
 
     filename = "".join(random.choices(string.ascii_letters, k=8)) + ".pdf"
     pandoc_process = subprocess.run(
