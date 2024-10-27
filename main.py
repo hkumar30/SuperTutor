@@ -22,7 +22,7 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 BASE_URL = os.getenv("BASE_URL")
 if OPENAI_API_KEY is None:
-    raise Exception("OPENAI_API_KEY not defined. Check your .env file, buddy.")
+    raise Exception("Yo buddy, OPENAI_API_KEY not defined. Check your .env file.")
 if BASE_URL is None:
     BASE_URL = "http://localhost:8000"
 
@@ -101,7 +101,7 @@ class LessonPlanORM(Base):
     author = Column(String, nullable=False)
     
     # Establish relationship with LessonORM
-    lessons = relationship("LessonORM", backref="lesson_plan", cascade="all, delete-orphan")
+    sublessons = relationship("LessonORM", backref="lesson_plan", cascade="all, delete-orphan")
 
 # Create all tables in the database
 Base.metadata.create_all(bind=engine)
@@ -119,7 +119,7 @@ class LessonPlan(BaseModel):
     id: int
     title: str
     author: str
-    lessons: list[Lesson]
+    sublessons: list[Lesson]
 
     @classmethod
     def get(cls, db, lesson_id: int):
@@ -132,7 +132,7 @@ class LessonPlan(BaseModel):
             id=lesson_plan_orm.id,
             title=lesson_plan_orm.title,
             author=lesson_plan_orm.author,
-            lessons=[
+            sublessons=[
                 Lesson(
                     title=lesson.title,
                     lesson_text=lesson.lesson_text,
@@ -141,7 +141,7 @@ class LessonPlan(BaseModel):
                     lesson_type=lesson.lesson_type.value,
                     solution_boilerplate=lesson.solution_boilerplate
                 )
-                for lesson in lesson_plan_orm.lessons
+                for lesson in lesson_plan_orm.sublessons
             ]
         )
 
@@ -271,13 +271,21 @@ def create_sample_data(db: Session):
     # Check if sample data already exists
     if db.query(LessonPlanORM).count() == 0:
         db.add(LessonPlanORM(
-            title="Sample LaTeX Plan #1",
-            author="John Smith",
-            lessons=[
+            title="LaTeX 101",
+            author="Vikriti Lokegaonkar",
+            sublessons=[
                 LessonORM(
                     title="Lesson 1",
-                    lesson_text="Introduction to LaTeX",
-                    solution="Use LaTeX to format documents.",
+                    lesson_text="<h1>Welcome to your first Markdown and LaTeX tutorial.</h1>\n\n<p>LaTeX (pronounced Lah-Tek) is a typesetting engine used to create beautifully formatted documents.</p>\n\n<p>In this lesson, we will cover the basics of setting up a LaTeX document structure and using Markdown-style headings for top-level and sub-level sections.</p>\n\n<p>A basic LaTeX document contains commands that define its structure. Start by setting the document class and adding content inside the <code>document</code> environment:</p>\n\n<pre>\n\\documentclass{article}\n\\begin{document}\nHello, LaTeX World!\n\\end{document}\n</pre>\n\n<p>Now create a document with the structure shown above and include two headings: a top-level heading and a level 3 heading. Use the syntax below:</p>\n\n<pre>\n# This is a top level heading\n\n### This is a third level heading.\n</pre>",
+                    solution="\\documentclass{article}\n\\begin{document}\n# Hello\n\n### World\n\\end{document}",
+                    solution_information="Refer to LaTeX documentation.",
+                    lesson_type=LessonTypeEnum.latex,
+                    solution_boilerplate="\\documentclass{article}" #Was not sure what to put here, we can change it later.
+                ),
+                LessonORM(
+                    title="Formatting Text and Creating Lists",
+                    lesson_text="<h1>Text Formatting and Lists</h1>\n\n<p>LaTeX offers commands to format text with bold, italics, and underline:</p>\n\n<pre>\n\\textbf{bold text}\n\\textit{italic text}\n\\underline{underlined text}\n</pre>\n\n<p>It also supports creating unordered and ordered lists. Use <code>itemize</code> for an unordered list and <code>enumerate</code> for an ordered list:</p>\n\n<pre>\n\\begin{itemize}\n  \\item First item\n  \\item Second item\n\\end{itemize>\n\n\\begin{enumerate}\n  \\item First item\n  \\item Second item\n\\end{enumerate>\n</pre>\n\n<p>Create a document with one sentence that includes bold, italic, and underlined text, as well as both an unordered and ordered list.</p>",
+                    solution="\\documentclass{article}\n\\begin{document}\nThis is \\textbf{bold}, \\textit{italic}, and \\underline{underlined} text.\n\n\\begin{itemize}\n  \\item First item\n  \\item Second item\n\\end{itemize}\n\n\\begin{enumerate}\n  \\item First item\n  \\item Second item\n\\end{enumerate}\n\\end{document}",
                     solution_information="Refer to LaTeX documentation.",
                     lesson_type=LessonTypeEnum.latex,
                     solution_boilerplate="\\documentclass{article}" #Was not sure what to put here, we can change it later.
@@ -287,7 +295,7 @@ def create_sample_data(db: Session):
         db.add(LessonPlanORM(
             title="Sample Linux Plan",
             author="Joe Smith",
-            lessons=[
+            sublessons=[
                 LessonORM(
                     title="Lesson 2",
                     lesson_text="Basic Linux Commands",
