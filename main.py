@@ -25,6 +25,7 @@ from google.cloud import texttospeech
 # Load environment variables
 load_dotenv()
 
+MODEL = os.getenv("MODEL", "gpt-4o-mini")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 BASE_URL = os.getenv("BASE_URL")
 if OPENAI_API_KEY is None:
@@ -426,7 +427,7 @@ def check_submission(
         }
 
         payload = {
-            "model": "gpt-3.5-turbo",  # Use a valid model name
+            "model": MODEL,  # Use a valid model name
             "messages": [
                 {
                     "role": "system",
@@ -520,7 +521,7 @@ def chat(
         }
 
         payload = {
-            "model": "gpt-3.5-turbo",  # Use a valid model name
+            "model": MODEL,  # Use a valid model name
             "messages": [
                 {
                     "role": "system",

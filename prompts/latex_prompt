@@ -20,4 +20,4 @@ Did the student get the answer correct?
 Answer in this format:
 
 Pass: Yes or No
-Hint: What the student can fix to get the correct answer
+Hint: What the student can fix to get the correct answer. Use "You" in the hint. Do not give away the professor's solution in the hint.
