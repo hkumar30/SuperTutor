@@ -153,6 +153,7 @@ class SubmissionResult(BaseModel):
     problem: str | None = None
     hint: str | None = None
     output_url: str | None = None
+    output: str | None = None
 
 @app.get("/lessons/")
 def get_lesson_plans(db: Session = Depends(get_db)):
@@ -176,18 +177,21 @@ async def check_submission(
     lesson_plan = LessonPlan.get(db, lesson_id=lesson_id)
     sublesson = lesson_plan.sublessons[sublesson_id]
 
-    filename = "".join(random.choices(string.ascii_letters, k=8)) + ".pdf"
+    filename = "".join(random.choices(string.ascii_letters, k=8)) + ".html"
     pandoc_process = subprocess.run(
-        ["pandoc", "-V", 'geometry:papersize={5in,2.7in},margin=0.1cm', "-o", f"static/{filename}"], input=submission.encode()
+        #["pandoc", "-V", 'geometry:papersize={5in,2.7in},margin=0.1cm', "-o", f"static/{filename}"], input=submission.encode()
+        ["pandoc"], input=submission.encode(),
+        capture_output=True
     )
     # stdoutdata, stderrdata = pandoc_process.communicate(submission)
     if pandoc_process.returncode != 0:
         return SubmissionResult(success=False, problem="Doesn't compile")
 
-    output_url =f"{BASE_URL}/static/{filename}"
+    #output_url =f"{BASE_URL}/static/{filename}"
+    output = pandoc_process.stdout
 
     if not check_solution:
-        return SubmissionResult(success=False, problem="Not Checking Solution", output_url=output_url)
+        return SubmissionResult(success=False, problem="Not Checking Solution", output=output)
 
     prompt = prompts[sublesson.lesson_type].format(
         task=sublesson.task,
