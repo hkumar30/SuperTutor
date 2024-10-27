@@ -178,6 +178,13 @@ class LessonPlanCreate(BaseModel):
     author: str
     sublessons: List[SubLessonCreate]
 
+class SubLessonCreateRequest(BaseModel):
+    title: str
+    prompt: str
+    question: str
+    type: Literal["latex", "linux"]
+    solutionBoilerplate: str
+
 class AudioResponse(BaseModel):
     audio_url: str
 
@@ -249,13 +256,13 @@ async def text_to_speech(text: str, language: str = "en-US", voice_name: str = "
         raise HTTPException(status_code=500, detail="Internal server error.")
 
 # Endpoint to get all lesson plans
-@app.get("/lessons")
+@app.get("/lessons/")
 def get_lesson_plans(db: Session = Depends(get_db)):
     lesson_plans = db.query(LessonPlanORM).all()
     return [{"id": lp.id, "title": lp.title, "author": lp.author} for lp in lesson_plans]
 
 # Endpoint to create a new lesson plan
-@app.post("/lessons", response_model=dict)
+@app.post("/lessons/", response_model=dict)
 def create_lesson(lesson_plan_data: LessonPlanCreate, db: Session = Depends(get_db)):
     try:
         new_lesson_plan = LessonPlanORM(
@@ -302,6 +309,49 @@ def lesson(lesson_id: int, db: Session = Depends(get_db)):
             detail=f"LessonPlan with id {lesson_id} not found."
         )
     return lesson_plan
+
+@app.post("/lessons/{lesson_id}/sublessons", response_model=dict)
+def add_sublesson(
+    lesson_id: int,
+    sublesson_data: SubLessonCreateRequest,
+    db: Session = Depends(get_db)
+):
+    try:
+        # Fetch the lesson plan
+        lesson_plan = db.query(LessonPlanORM).filter(LessonPlanORM.id == lesson_id).first()
+        if not lesson_plan:
+            raise HTTPException(status_code=404, detail="Lesson Plan not found.")
+
+        # Create a new LessonORM instance
+        new_sublesson = LessonORM(
+            lesson_plan_id=lesson_id,
+            title=sublesson_data.title,
+            lesson_text=sublesson_data.prompt,
+            solution=sublesson_data.question,
+            task="Refer to relevant documentation.",
+            lesson_type=LessonTypeEnum[sublesson_data.type],
+            solution_boilerplate=sublesson_data.solutionBoilerplate
+        )
+
+        # Add the sublesson to the lesson plan
+        lesson_plan.sublessons.append(new_sublesson)
+        db.add(new_sublesson)
+        db.commit()
+        db.refresh(new_sublesson)
+
+        return {"message": "Sublesson added successfully!", "sublesson_id": new_sublesson.id}
+    except ValidationError as e:
+        db.rollback()
+        print(f"Validation Error: {e.errors()}")
+        raise HTTPException(status_code=400, detail=f"Validation error: {e.errors()}")
+    except SQLAlchemyError as e:
+        db.rollback()
+        print(f"Database Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+    except Exception as e:
+        db.rollback()
+        print(f"Unexpected Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 # Endpoint to submit a lesson
 @app.post("/lessons/{lesson_id}/{sublesson_id}/submit", response_model=SubmissionResult)
