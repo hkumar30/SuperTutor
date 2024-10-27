@@ -178,7 +178,7 @@ async def check_submission(
 
     filename = "".join(random.choices(string.ascii_letters, k=8)) + ".pdf"
     pandoc_process = subprocess.run(
-        ["pandoc", "-o", f"static/{filename}"], input=submission.encode()
+        ["pandoc", "-V", 'geometry:papersize={5in,2.7in},margin=0.1cm', "-o", f"static/{filename}"], input=submission.encode()
     )
     # stdoutdata, stderrdata = pandoc_process.communicate(submission)
     if pandoc_process.returncode != 0:
