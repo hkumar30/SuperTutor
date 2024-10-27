@@ -16,7 +16,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import sessionmaker, relationship, declarative_base, Session
 import enum
 from fastapi.middleware.cors import CORSMiddleware
-from ttsold import *;
+# from tts import *;
 
 load_dotenv()
 
@@ -154,6 +154,11 @@ class SubmissionResult(BaseModel):
     hint: str | None = None
     output_url: str | None = None
 
+@app.get("/lessons/")
+def get_lesson_plans(db: Session = Depends(get_db)):
+    lesson_plans = db.query(LessonPlanORM).all()
+    return [{"id": lp.id, "title": lp.title, "author": lp.author} for lp in lesson_plans]
+
 @app.get("/lessons/{lesson_id}")
 def lesson(lesson_id: int, db: Session = Depends(get_db)):
     lesson_plan = LessonPlan.get(db, lesson_id)
@@ -169,11 +174,11 @@ async def check_submission(
     lesson_id: int, sublesson_id: int, submission: str, check_solution: bool, db: Session = Depends(get_db)
 ) -> SubmissionResult | None:
     lesson_plan = LessonPlan.get(db, lesson_id=lesson_id)
-    sublesson = lesson_plan.lessons[sublesson_id]
+    sublesson = lesson_plan.sublessons[sublesson_id]
 
     filename = "".join(random.choices(string.ascii_letters, k=8)) + ".pdf"
     pandoc_process = subprocess.run(
-        ["pandoc", "-o", f"static/{filename}"], input=submission.encode()
+        ["pandoc", "-V", 'geometry:papersize={5in,2.7in},margin=0.1cm', "-o", f"static/{filename}"], input=submission.encode()
     )
     # stdoutdata, stderrdata = pandoc_process.communicate(submission)
     if pandoc_process.returncode != 0:
@@ -234,7 +239,7 @@ async def chat(
     lesson_id: int, sublesson_id: int, submission: str, messages: list[LessonChatMessage], db: Session = Depends(get_db) 
 ) -> LessonChatMessage | None:
     lesson_plan = LessonPlan.get(db, lesson_id=lesson_id)
-    sublesson = lesson_plan.lessons[sublesson_id]
+    sublesson = lesson_plan.sublessons[sublesson_id]
     client = await get_client()
     prompt = prompts[sublesson.lesson_type + "_chat"].format(
                                task=sublesson.task,
@@ -243,7 +248,7 @@ async def chat(
                     )
     print(prompt)
     async with client.post(
-        "https://api.openai.com/v1/chat/completion",
+        "https://api.openai.com/v1/chat/completions",
         headers={"Authorization": "Bearer " + OPENAI_API_KEY},
         json={
             "model": "gpt-4o-mini",
@@ -259,7 +264,7 @@ async def chat(
         if not resp.ok:
             print(await resp.json())
             return None
-        resp_json = aswait resp.json()
+        resp_json = await resp.json()
         print(resp_json["choices"][0]["message"])
         return resp_json["choices"][0]["message"]
 
@@ -271,7 +276,7 @@ def create_sample_data(db: Session):
             author="Vikriti Lokegaonkar",
             sublessons=[
                 LessonORM(
-                    title="Lesson 1",
+                    title="Introduction to LaTeX",
                     lesson_text="<h1>Welcome to your first Markdown and LaTeX tutorial.</h1>\n\n<p>LaTeX (pronounced Lah-Tek) is a typesetting engine used to create beautifully formatted documents.</p>\n\n<p>In this lesson, we will cover the basics of setting up a LaTeX document structure and using Markdown-style headings for top-level and sub-level sections.</p>\n\n<p>A basic LaTeX document contains commands that define its structure. Start by setting the document class and adding content inside the <code>document</code> environment:</p>\n\n<pre>\n\\documentclass{article}\n\\begin{document}\nHello, LaTeX World!\n\\end{document}\n</pre>\n\n<p>Now create a document with the structure shown above and include two headings: a top-level heading and a level 3 heading. Use the syntax below:</p>\n\n<pre>\n# This is a top-level heading\n\n### This is a third level heading.\n</pre>",
                     solution="\\documentclass{article}\n\\begin{document}\n# Hello\n\n### World\n\\end{document}",
                     task="Refer to LaTeX documentation.",
@@ -285,7 +290,23 @@ def create_sample_data(db: Session):
                     task="Refer to LaTeX documentation.",
                     lesson_type=LessonTypeEnum.latex,
                     solution_boilerplate="\\documentclass{article}" #Was not sure what to put here, we can change it later.
-                )
+                ),
+                LessonORM(
+                    title="Math Equations",
+                    lesson_text="<h1>Inserting Math Equations</h1>\n\n<p>LaTeX is widely used for creating complex mathematical equations. You can include inline equations with <code>$...$</code> and displayed equations with <code>\\[ ... \\]</code>:</p>\n\n<pre>\nThis is an inline equation: $E = mc^2$.\n\n\\[\n\\int_{a}^{b} x^2 dx\n\\]</pre>\n\n<p>Create a document with an inline equation for the Pythagorean theorem and a displayed integral from 0 to infinity.</p>",
+                    solution="\\documentclass{article}\n\\begin{document}\nThis is the inline equation for the Pythagorean theorem: $a^2 + b^2 = c^2$.\n\nDisplayed integral:\n\n\\[\n\\int_{0}^{\\infty} e^{-x} dx\n\\]\n\\end{document}",
+                    solution_information="Refer to LaTeX math documentation.",
+                    lesson_type=LessonTypeEnum.latex,
+                    solution_boilerplate="\\documentclass{article}"
+                ),
+                LessonORM(
+                    title="Tables in LaTeX",
+                    lesson_text="<h1>Creating Tables</h1>\n\n<p>LaTeX allows you to create tables using the <code>tabular</code> environment:</p>\n\n<pre>\n\\begin{tabular}{|c|c|}\n\\hline\nColumn 1 & Column 2 \\\\\n\\hline\nData 1 & Data 2 \\\\\n\\hline\n\\end{tabular}</pre>\n\n<p>Create a document with a 2x2 table where the headers are <em>Name</em> and <em>Age</em>, and add two rows with names and ages.</p>",
+                    solution="\\documentclass{article}\n\\begin{document}\n\\begin{tabular}{|c|c|}\n\\hline\nName & Age \\\\\n\\hline\nAlice & 25 \\\\\nBob & 30 \\\\\n\\hline\n\\end{tabular}\n\\end{document}",
+                    solution_information="Refer to LaTeX table documentation.",
+                    lesson_type=LessonTypeEnum.latex,
+                    solution_boilerplate="\\documentclass{article}"
+                ),
         ]))
 
         db.add(LessonPlanORM(
@@ -293,7 +314,7 @@ def create_sample_data(db: Session):
             author="Joe Smith",
             sublessons=[
                 LessonORM(
-                    title="Lesson 2",
+                    title="Getting started with Linux",
                     lesson_text="Basic Linux Commands",
                     solution="Use commands like ls, cd, mkdir.",
                     task="Refer to Linux command manuals.",
